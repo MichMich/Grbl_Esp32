@@ -20,6 +20,7 @@
     along with Grbl_ESP32.  If not, see <http://www.gnu.org/licenses/>.
 */
 #define MACHINE_NAME            "6 Pack Controller - Custom Config"
+#define CUSTOM_CODE_FILENAME "Custom/scara.cpp"
 
 #define N_AXIS 4
 
@@ -139,7 +140,7 @@ Socket #5
 // #define DEFAULT_HOMING_CYCLE_1 0b00000001
 // #define DEFAULT_HOMING_CYCLE_2 0b00000010
 
-#define DEFAULT_DIRECTION_INVERT_MASK 0b00000100
+#define DEFAULT_DIRECTION_INVERT_MASK 0b00000111
 
 #define DEFAULT_INVERT_LIMIT_PINS false
 #define DEFAULT_HARD_LIMIT_ENABLE false
@@ -181,11 +182,11 @@ Socket #5
 #define DEFAULT_X_CURRENT 1
 #define DEFAULT_Y_CURRENT 1
 #define DEFAULT_Z_CURRENT 1
-#define DEFAULT_A_CURRENT 0.25
+#define DEFAULT_A_CURRENT 0.1
 
 #define DEFAULT_X_HOLD_CURRENT 0.25
 #define DEFAULT_Y_HOLD_CURRENT 0.25
 #define DEFAULT_Z_HOLD_CURRENT 0.25
-#define DEFAULT_A_HOLD_CURRENT 0.25
+#define DEFAULT_A_HOLD_CURRENT 0.1
 
 #define DEFAULT_STEPPER_IDLE_LOCK_TIME 255
