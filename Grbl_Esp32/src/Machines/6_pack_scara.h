@@ -75,6 +75,7 @@
 #define X_STEP_PIN              I2SO(18)
 #define X_CS_PIN                I2SO(19)
 #define X_RSENSE                TMC2130_RSENSE_DEFAULT
+#define X_LENGTH                150
 
 // Motor Socket #6
 #define Z_TRINAMIC_DRIVER       2130
@@ -83,6 +84,7 @@
 #define Z_DISABLE_PIN           I2SO(23)
 #define Z_CS_PIN                I2SO(22)
 #define Z_RSENSE                TMC2130_RSENSE_DEFAULT
+#define Y_LENGTH                90
 
 /*
     Socket I/O reference
