@@ -95,14 +95,14 @@ void apply_inverse_kinematics(float* cartesian) {
     float distance_from_base_to_target = sqrt(x * x + y * y);
     float angle_from_base_to_target = atan2(x, y) * 180 / M_PI;
 
-    if (distance_from_base_to_target >= X_LENGTH + Y_LENGTH) {
+    if (distance_from_base_to_target > X_LENGTH + Y_LENGTH) {
       motor_angle_x = angle_from_base_to_target;
       motor_angle_y = 0;
 
       grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target not reachable. Distance too far.");
     }
 
-    else if (distance_from_base_to_target <= X_LENGTH - Y_LENGTH) {
+    else if (distance_from_base_to_target < X_LENGTH - Y_LENGTH) {
       motor_angle_x = angle_from_base_to_target;
       motor_angle_y = angle_from_base_to_target >= 0 ? 180 : -180;
 
