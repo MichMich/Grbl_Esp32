@@ -38,10 +38,51 @@ Be careful to return the correct values
 Below are all the current weak function
 */
 
-#include "../src/Settings.h"
+void apply_inverse_kinematics(float* motor_target);
+void apply_forward_kinematics(float* cartesian);
 
-FlagSetting* scara_ik;
+static uint8_t last_selected_coord = 0;
 
+bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* position) {
+    grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, gc_state.modal.coord_select == CoordIndex::G54 ? "Scara Mode" : "Joint Mode");
+
+    // grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target: %f, %f", target[X_AXIS], target[Y_AXIS]);
+    // grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Position: %f, %f", position[X_AXIS], position[Y_AXIS]);
+
+    float motor_target[N_AXIS];
+
+    motor_target[X_AXIS] = target[X_AXIS];
+    motor_target[Y_AXIS] = target[Y_AXIS];
+    motor_target[Z_AXIS] = target[Z_AXIS];
+    motor_target[A_AXIS] = target[A_AXIS];
+
+    if (gc_state.modal.coord_select == CoordIndex::G54) {
+      apply_inverse_kinematics(motor_target);
+    }
+
+    // Compensate relative rotation of X-motor.
+    motor_target[Y_AXIS] = motor_target[Y_AXIS] + motor_target[X_AXIS] / 2;
+
+    return mc_line(motor_target, pl_data);
+}
+
+
+void motors_to_cartesian(float* cartesian, float* motors, int n_axis) {
+
+    cartesian[X_AXIS] = motors[X_AXIS];
+    cartesian[Y_AXIS] = motors[Y_AXIS];
+    cartesian[Z_AXIS] = motors[Z_AXIS];
+    cartesian[A_AXIS] = motors[A_AXIS];
+
+    if (gc_state.modal.coord_select == CoordIndex::G54) {
+      apply_forward_kinematics(cartesian);
+    }
+
+    // Compensate relative rotation of X-motor.
+    cartesian[Y_AXIS] = cartesian[Y_AXIS] - cartesian[X_AXIS] / 2;
+}
+
+/** HELPER FUNCTIONS **/
 void apply_inverse_kinematics(float* motor_target) {
     const int ANGLE_X = X_AXIS;
     const int ANGLE_Y = Y_AXIS;
@@ -59,14 +100,14 @@ void apply_inverse_kinematics(float* motor_target) {
       motor_angle_x = angle_from_base_to_target;
       motor_angle_y = 0;
 
-      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target not reachable. Distance to far.");
+      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target not reachable. Distance too far.");
     }
 
     else if (distance_from_base_to_target <= X_LENGTH - Y_LENGTH) {
       motor_angle_x = angle_from_base_to_target;
       motor_angle_y = angle_from_base_to_target >= 0 ? 180 : -180;
 
-      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target not reachable. Distance to close.");
+      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target not reachable. Distance too close.");
     }
 
     else {
@@ -78,7 +119,7 @@ void apply_inverse_kinematics(float* motor_target) {
       float cos_angle_y = ((Y_LENGTH * Y_LENGTH) + (X_LENGTH * X_LENGTH) - (distance_from_base_to_target * distance_from_base_to_target)) / (2 * Y_LENGTH * X_LENGTH);
       float angle_y = acos(cos_angle_y) * 180 / M_PI;
 
-      // So they work in Unity reference frame
+      // Decide which way we want the second joint to go
       if (angle_from_base_to_target >= 0) {
         motor_angle_x = (angle_from_base_to_target - angle_x);
         motor_angle_y = (180 - angle_y);
@@ -97,6 +138,9 @@ void apply_inverse_kinematics(float* motor_target) {
     // Set new targets and devide by 3.6 because the angle is in DEG (360), and we need a value of 100.
     motor_target[ANGLE_X] = motor_angle_x / 3.6;
     motor_target[ANGLE_Y] = motor_angle_y / 3.6;
+
+    // Compensate for A-motor rotation.
+    // motor_target[A_AXIS] = motor_target[A_AXIS] - motor_target[X_AXIS] - motor_target[Y_AXIS];
 }
 
 void apply_forward_kinematics(float* cartesian) {
@@ -112,141 +156,7 @@ void apply_forward_kinematics(float* cartesian) {
 
   cartesian[X_AXIS] = beta_x;
   cartesian[Y_AXIS] = beta_y * -1;
+
+  // Compensate for A-motor rotation.
+  // cartesian[A_AXIS] = cartesian[A_AXIS] + cartesian[X_AXIS] + cartesian[Y_AXIS];
 }
-
-/*
-This function is used as a one time setup for your machine.
-*/
-void machine_init() {
-  scara_ik = new FlagSetting(EXTENDED, WG, NULL, "SCARA/UseInverseKinematics", true);
-}
-
-/*
-This is used to initialize a display.
-*/
-void display_init() {}
-
-/*
-  limitsCheckTravel() is called to check soft limits
-  It returns true if the motion is outside the limit values
-*/
-bool limitsCheckTravel() {
-    return false;
-}
-
-/*
-  user_defined_homing(uint8_t cycle_mask) is called at the begining of the normal Grbl_ESP32 homing
-  sequence.  If user_defined_homing(uint8_t cycle_mask) returns false, the rest of normal Grbl_ESP32
-  homing is skipped if it returns false, other normal homing continues.  For
-  example, if you need to manually prep the machine for homing, you could implement
-  user_defined_homing(uint8_t cycle_mask) to wait for some button to be pressed, then return true.
-*/
-bool user_defined_homing(uint8_t cycle_mask) {
-    // True = done with homing, false = continue with normal Grbl_ESP32 homing
-    return false;
-}
-
-/*
-  Inverse Kinematics converts X,Y,Z cartesian coordinate to the steps
-  on your "joint" motors.  It requires the following three functions:
-*/
-
-/*
-  cartesian_to_motors() converts from cartesian coordinates to motor space.
-
-  Grbl_ESP32 processes arcs by converting them into tiny little line segments.
-  Kinematics in Grbl_ESP32 works the same way. Search for this function across
-  Grbl_ESP32 for examples. You are basically converting cartesian X,Y,Z... targets to
-
-    target = an N_AXIS array of target positions (where the move is supposed to go)
-    pl_data = planner data (see the definition of this type to see what it is)
-    position = an N_AXIS array of where the machine is starting from for this move
-*/
-bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* position) {
-    // this simply moves to the target. Replace with your kinematics.
-
-    float motor_target[N_AXIS];
-
-    motor_target[X_AXIS] = target[X_AXIS];
-    motor_target[Y_AXIS] = target[Y_AXIS];
-    motor_target[Z_AXIS] = target[Z_AXIS];
-    motor_target[A_AXIS] = target[A_AXIS];
-
-    if (scara_ik->get()) {
-      apply_inverse_kinematics(motor_target);
-
-      // Compensate for A-motor rotation.
-      motor_target[A_AXIS] = motor_target[A_AXIS] - motor_target[X_AXIS] - motor_target[Y_AXIS];
-    }
-
-    // Limit maximum angles
-    if (motor_target[X_AXIS] < -25) motor_target[X_AXIS] = -25;
-    if (motor_target[X_AXIS] > 25) motor_target[X_AXIS] = 25;
-
-    if (motor_target[Y_AXIS] < -50) motor_target[Y_AXIS] = -50;
-    if (motor_target[Y_AXIS] > 50) motor_target[Y_AXIS] = 50;
-
-    // Compensate relative rotation of X-motor.
-    motor_target[Y_AXIS] = motor_target[Y_AXIS] + motor_target[X_AXIS] / 2;
-
-    return mc_line(motor_target, pl_data);
-}
-
-/*
-  kinematics_pre_homing() is called before normal homing
-  You can use it to do special homing or just to set stuff up
-
-  cycle_mask is a bit mask of the axes being homed this time.
-*/
-bool kinematics_pre_homing(uint8_t cycle_mask) {
-    return false;  // finish normal homing cycle
-}
-
-/*
-  kinematics_post_homing() is called at the end of normal homing
-*/
-void kinematics_post_homing() {}
-
-/*
-  The status command uses motors_to_cartesian() to convert
-  your motor positions to cartesian X,Y,Z... coordinates.
-
-  Convert the N_AXIS array of motor positions to cartesian in your code.
-*/
-void motors_to_cartesian(float* cartesian, float* motors, int n_axis) {
-    cartesian[X_AXIS] = motors[X_AXIS];
-    cartesian[Y_AXIS] = motors[Y_AXIS];
-    cartesian[Z_AXIS] = motors[Z_AXIS];
-    cartesian[A_AXIS] = motors[A_AXIS];
-
-    if (scara_ik->get()) {
-      // Compensate for A-motor rotation.
-      cartesian[A_AXIS] = cartesian[A_AXIS] + cartesian[X_AXIS] + cartesian[Y_AXIS];
-
-      apply_forward_kinematics(cartesian);
-    }
-
-    // Compensate relative rotation of X-motor.
-    cartesian[Y_AXIS] = cartesian[Y_AXIS] - cartesian[X_AXIS] / 2;
-}
-
-/*
-  user_tool_change() is called when tool change gcode is received,
-  to perform appropriate actions for your machine.
-*/
-void user_tool_change(uint8_t new_tool) {}
-
-/*
-  options.  user_defined_macro() is called with the button number to
-  perform whatever actions you choose.
-*/
-void user_defined_macro(uint8_t index) {}
-
-/*
-  user_m30() is called when an M30 gcode signals the end of a gcode file.
-*/
-void user_m30() {}
-
-// If you add any additional functions specific to your machine that
-// require calls from common code, guard their calls in the common code with
-// #ifdef USE_WHATEVER and add function prototypes (also guarded) to grbl.h
