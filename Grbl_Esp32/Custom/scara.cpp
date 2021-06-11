@@ -41,13 +41,11 @@ Below are all the current weak function
 void apply_inverse_kinematics(float* motor_target);
 void apply_forward_kinematics(float* cartesian);
 
-static uint8_t last_selected_coord = 0;
-
 bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* position) {
     grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, gc_state.modal.coord_select == CoordIndex::G54 ? "Scara Mode" : "Joint Mode");
 
-    // grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target: %f, %f", target[X_AXIS], target[Y_AXIS]);
-    // grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Position: %f, %f", position[X_AXIS], position[Y_AXIS]);
+    grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target: %f, %f", target[X_AXIS], target[Y_AXIS]);
+    grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Position: %f, %f", position[X_AXIS], position[Y_AXIS]);
 
     float motor_target[N_AXIS];
 
@@ -68,7 +66,6 @@ bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* positi
 
 
 void motors_to_cartesian(float* cartesian, float* motors, int n_axis) {
-
     cartesian[X_AXIS] = motors[X_AXIS];
     cartesian[Y_AXIS] = motors[Y_AXIS];
     cartesian[Z_AXIS] = motors[Z_AXIS];
