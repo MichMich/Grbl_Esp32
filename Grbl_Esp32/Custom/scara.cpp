@@ -38,15 +38,12 @@ Be careful to return the correct values
 Below are all the current weak function
 */
 
+static bool alternative_joint_angle = false;
+
 void apply_inverse_kinematics(float* motor_target);
 void apply_forward_kinematics(float* cartesian);
 
 bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* position) {
-    grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, gc_state.modal.coord_select == CoordIndex::G54 ? "Scara Mode" : "Joint Mode");
-
-    grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target: %f, %f", target[X_AXIS], target[Y_AXIS]);
-    grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Position: %f, %f", position[X_AXIS], position[Y_AXIS]);
-
     float motor_target[N_AXIS];
 
     motor_target[X_AXIS] = target[X_AXIS];
@@ -54,9 +51,17 @@ bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* positi
     motor_target[Z_AXIS] = target[Z_AXIS];
     motor_target[A_AXIS] = target[A_AXIS];
 
-    if (gc_state.modal.coord_select == CoordIndex::G54) {
-      apply_inverse_kinematics(motor_target);
-    }
+    apply_inverse_kinematics(motor_target);
+
+    // Limit movement
+    if (motor_target[X_AXIS] < -25) motor_target[X_AXIS] = -25;
+    if (motor_target[X_AXIS] > 25) motor_target[X_AXIS] = 25;
+
+    if (motor_target[Y_AXIS] < -50) motor_target[Y_AXIS] = -50;
+    if (motor_target[Y_AXIS] > 50) motor_target[Y_AXIS] = 50;
+
+    // Compensate for A-motor rotation.
+    motor_target[A_AXIS] = motor_target[A_AXIS] - motor_target[X_AXIS] - motor_target[Y_AXIS];
 
     // Compensate relative rotation of X-motor.
     motor_target[Y_AXIS] = motor_target[Y_AXIS] + motor_target[X_AXIS] / 2;
@@ -64,28 +69,25 @@ bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* positi
     return mc_line(motor_target, pl_data);
 }
 
-
 void motors_to_cartesian(float* cartesian, float* motors, int n_axis) {
     cartesian[X_AXIS] = motors[X_AXIS];
     cartesian[Y_AXIS] = motors[Y_AXIS];
     cartesian[Z_AXIS] = motors[Z_AXIS];
     cartesian[A_AXIS] = motors[A_AXIS];
 
-    if (gc_state.modal.coord_select == CoordIndex::G54) {
-      apply_forward_kinematics(cartesian);
-    }
-
     // Compensate relative rotation of X-motor.
     cartesian[Y_AXIS] = cartesian[Y_AXIS] - cartesian[X_AXIS] / 2;
+
+    // Compensate for A-motor rotation.
+    cartesian[A_AXIS] = cartesian[A_AXIS] + cartesian[X_AXIS] + cartesian[Y_AXIS];
+
+    apply_forward_kinematics(cartesian);
 }
 
 /** HELPER FUNCTIONS **/
-void apply_inverse_kinematics(float* motor_target) {
-    const int ANGLE_X = X_AXIS;
-    const int ANGLE_Y = Y_AXIS;
-
-    float x = motor_target[X_AXIS];
-    float y = motor_target[Y_AXIS] * -1;
+void apply_inverse_kinematics(float* cartesian) {
+    float x = cartesian[X_AXIS];
+    float y = cartesian[Y_AXIS] * -1;
 
     float motor_angle_x;
     float motor_angle_y;
@@ -117,7 +119,10 @@ void apply_inverse_kinematics(float* motor_target) {
       float angle_y = acos(cos_angle_y) * 180 / M_PI;
 
       // Decide which way we want the second joint to go
-      if (angle_from_base_to_target >= 0) {
+      if (angle_from_base_to_target - angle_x < -90) alternative_joint_angle = false;
+      if (angle_from_base_to_target + angle_x > 90) alternative_joint_angle = true;
+
+      if (alternative_joint_angle) {
         motor_angle_x = (angle_from_base_to_target - angle_x);
         motor_angle_y = (180 - angle_y);
       } else {
@@ -133,11 +138,8 @@ void apply_inverse_kinematics(float* motor_target) {
     }
 
     // Set new targets and devide by 3.6 because the angle is in DEG (360), and we need a value of 100.
-    motor_target[ANGLE_X] = motor_angle_x / 3.6;
-    motor_target[ANGLE_Y] = motor_angle_y / 3.6;
-
-    // Compensate for A-motor rotation.
-    // motor_target[A_AXIS] = motor_target[A_AXIS] - motor_target[X_AXIS] - motor_target[Y_AXIS];
+    cartesian[X_AXIS] = motor_angle_x / 3.6;
+    cartesian[Y_AXIS] = motor_angle_y / 3.6;
 }
 
 void apply_forward_kinematics(float* cartesian) {
