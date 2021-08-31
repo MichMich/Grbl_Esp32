@@ -22,7 +22,7 @@
 #define MACHINE_NAME            "6 Pack Controller - Custom Config"
 #define CUSTOM_CODE_FILENAME "Custom/scara.cpp"
 
-#define N_AXIS 4
+#define N_AXIS 5
 
 // I2S (steppers & other output-only pins)
 #define USE_I2S_OUT
@@ -45,12 +45,12 @@
 // #define C_RSENSE                TMC2130_RSENSE_DEFAULT
 
 // Motor Socket #2
-// #define B_TRINAMIC_DRIVER       2130
-// #define B_DIRECTION_PIN         I2SO(4)
-// #define B_STEP_PIN              I2SO(5)
-// #define B_DISABLE_PIN           I2SO(7)
-// #define B_CS_PIN                I2SO(6)
-// #define B_RSENSE                TMC2130_RSENSE_DEFAULT
+#define B_TRINAMIC_DRIVER       2130
+#define B_DIRECTION_PIN         I2SO(4)
+#define B_STEP_PIN              I2SO(5)
+#define B_DISABLE_PIN           I2SO(7)
+#define B_CS_PIN                I2SO(6)
+#define B_RSENSE                TMC2130_RSENSE_DEFAULT
 
 // Motor Socket #3
 #define A_TRINAMIC_DRIVER       2130
@@ -160,35 +160,42 @@ Socket #5
 #define	DEFAULT_Y_STEPS_PER_MM 331.52
 #define	DEFAULT_Z_STEPS_PER_MM 800
 #define	DEFAULT_A_STEPS_PER_MM 32
+#define	DEFAULT_B_STEPS_PER_MM 32
 
 #define DEFAULT_X_MAX_RATE 4000
 #define DEFAULT_Y_MAX_RATE 4000
 #define DEFAULT_Z_MAX_RATE 4000
-#define DEFAULT_A_MAX_RATE 15000
+#define DEFAULT_A_MAX_RATE 40000
+#define DEFAULT_B_MAX_RATE 40000
 
 #define DEFAULT_X_ACCELERATION 100
 #define DEFAULT_Y_ACCELERATION 100
 #define DEFAULT_Z_ACCELERATION 200
-#define DEFAULT_A_ACCELERATION 1000
+#define DEFAULT_A_ACCELERATION 2000
+#define DEFAULT_B_ACCELERATION 2000
 
 #define DEFAULT_X_HOMING_MPOS 0
 #define DEFAULT_Y_HOMING_MPOS 0
 #define DEFAULT_Z_HOMING_MPOS 0
 #define DEFAULT_A_HOMING_MPOS 0
+#define DEFAULT_B_HOMING_MPOS 0
 
 #define DEFAULT_X_MAX_TRAVEL 480
 #define DEFAULT_Y_MAX_TRAVEL 240
 #define DEFAULT_Z_MAX_TRAVEL 150
 #define DEFAULT_A_MAX_TRAVEL 100
+#define DEFAULT_B_MAX_TRAVEL 500
 
 #define DEFAULT_X_CURRENT 1
 #define DEFAULT_Y_CURRENT 1
 #define DEFAULT_Z_CURRENT 1
 #define DEFAULT_A_CURRENT 0.1
+#define DEFAULT_B_CURRENT 0.1
 
 #define DEFAULT_X_HOLD_CURRENT 0.25
 #define DEFAULT_Y_HOLD_CURRENT 0.25
 #define DEFAULT_Z_HOLD_CURRENT 0.25
 #define DEFAULT_A_HOLD_CURRENT 0.1
+#define DEFAULT_B_HOLD_CURRENT 0.1
 
 #define DEFAULT_STEPPER_IDLE_LOCK_TIME 255

@@ -43,6 +43,48 @@ static bool alternative_joint_angle = false;
 void apply_inverse_kinematics(float* motor_target);
 void apply_forward_kinematics(float* cartesian);
 
+bool limitsCheckTravel(float* target) {
+
+    float cartesian[N_AXIS];
+    motors_to_cartesian(cartesian, target, N_AXIS);
+    float distance = sqrt(cartesian[X_AXIS] * cartesian[X_AXIS] + cartesian[Y_AXIS] * cartesian[Y_AXIS]);
+
+    grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target: %f, %f, Distance: %f", target[X_AXIS],  target[Y_AXIS],  distance);
+
+
+    if (distance > X_LENGTH + Y_LENGTH) {
+      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Out of reach. Target too far.");
+      return true;
+    }
+
+    if (distance < X_LENGTH - Y_LENGTH) {
+      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Out of reach. Target too close.");
+      return true;
+    }
+
+    float min_x = -25;
+    float max_x = 25;
+    float min_y = -50 + target[X_AXIS] / 2;
+    float max_y = 50 + target[X_AXIS] / 2;
+
+    if (target[X_AXIS] < min_x || target[X_AXIS] > max_x) {
+      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "X Out of Reach: %f, Limits: %f - %f", target[X_AXIS], min_x, max_x);
+      return true;
+    }
+
+    if ((target[Y_AXIS]) < min_y || target[Y_AXIS] > max_y) {
+      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Y Out of Reach: %f, Limits: %f - %f", target[Y_AXIS], min_y, max_y);
+      return true;
+    }
+
+    if (target[Z_AXIS] < -160 || target[Z_AXIS] > 0) {
+      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Z Out of Reach: %f", target[Z_AXIS]);
+      return true;
+    }
+
+    return false;
+}
+
 bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* position) {
     float motor_target[N_AXIS];
 
@@ -50,18 +92,12 @@ bool cartesian_to_motors(float* target, plan_line_data_t* pl_data, float* positi
     motor_target[Y_AXIS] = target[Y_AXIS];
     motor_target[Z_AXIS] = target[Z_AXIS];
     motor_target[A_AXIS] = target[A_AXIS];
+    motor_target[B_AXIS] = target[B_AXIS];
 
     apply_inverse_kinematics(motor_target);
 
-    // Limit movement
-    if (motor_target[X_AXIS] < -25) motor_target[X_AXIS] = -25;
-    if (motor_target[X_AXIS] > 25) motor_target[X_AXIS] = 25;
-
-    if (motor_target[Y_AXIS] < -50) motor_target[Y_AXIS] = -50;
-    if (motor_target[Y_AXIS] > 50) motor_target[Y_AXIS] = 50;
-
     // Compensate for A-motor rotation.
-    motor_target[A_AXIS] = motor_target[A_AXIS] - motor_target[X_AXIS] - motor_target[Y_AXIS];
+    // motor_target[A_AXIS] = motor_target[A_AXIS] - motor_target[X_AXIS] - motor_target[Y_AXIS];
 
     // Compensate relative rotation of X-motor.
     motor_target[Y_AXIS] = motor_target[Y_AXIS] + motor_target[X_AXIS] / 2;
@@ -74,6 +110,7 @@ void motors_to_cartesian(float* cartesian, float* motors, int n_axis) {
     cartesian[Y_AXIS] = motors[Y_AXIS];
     cartesian[Z_AXIS] = motors[Z_AXIS];
     cartesian[A_AXIS] = motors[A_AXIS];
+    cartesian[B_AXIS] = motors[B_AXIS];
 
     // Compensate relative rotation of X-motor.
     cartesian[Y_AXIS] = cartesian[Y_AXIS] - cartesian[X_AXIS] / 2;
@@ -96,17 +133,17 @@ void apply_inverse_kinematics(float* cartesian) {
     float angle_from_base_to_target = atan2(x, y) * 180 / M_PI;
 
     if (distance_from_base_to_target > X_LENGTH + Y_LENGTH) {
+      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target not reachable: too far.");
+
       motor_angle_x = angle_from_base_to_target;
       motor_angle_y = 0;
-
-      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target not reachable. Distance too far.");
     }
 
     else if (distance_from_base_to_target < X_LENGTH - Y_LENGTH) {
-      motor_angle_x = angle_from_base_to_target;
-      motor_angle_y = angle_from_base_to_target >= 0 ? 180 : -180;
+      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target not reachable: too close.");
 
-      grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Target not reachable. Distance too close.");
+      motor_angle_x = distance_from_base_to_target > 0 ? angle_from_base_to_target : 0;
+      motor_angle_y = angle_from_base_to_target >= 0 ? 180 : -180;
     }
 
     else {
@@ -157,5 +194,5 @@ void apply_forward_kinematics(float* cartesian) {
   cartesian[Y_AXIS] = beta_y * -1;
 
   // Compensate for A-motor rotation.
-  // cartesian[A_AXIS] = cartesian[A_AXIS] + cartesian[X_AXIS] + cartesian[Y_AXIS];
+  cartesian[A_AXIS] = cartesian[A_AXIS] + cartesian[X_AXIS] + cartesian[Y_AXIS];
 }
